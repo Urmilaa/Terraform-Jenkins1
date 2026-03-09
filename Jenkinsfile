@@ -4,6 +4,7 @@ pipeline {
 
     parameters {
         booleanParam(name: 'autoApprove', defaultValue: false, description: 'Automatically run apply after generating plan?')
+         booleanParam(name: 'destroyInfra', defaultValue: false, description: 'Destroy infrastructure after apply?')
     }
 
     environment {
@@ -60,6 +61,29 @@ pipeline {
             steps {
                 dir('terraform') {
                     sh 'terraform apply -input=false tfplan'
+                }
+            }
+        }
+         stage('Destroy Approval') {
+
+            when {
+                equals expected: true, actual: params.destroyInfra
+            }
+
+            steps {
+                input message: "Are you sure you want to destroy the infrastructure?"
+            }
+        }
+
+        stage('Terraform Destroy') {
+
+            when {
+                equals expected: true, actual: params.destroyInfra
+            }
+
+            steps {
+                dir('terraform') {
+                    sh 'terraform destroy -auto-approve'
                 }
             }
         }
