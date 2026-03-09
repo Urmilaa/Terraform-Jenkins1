@@ -6,5 +6,5 @@ provider "aws" {
      
      
        resource "aws_s3_bucket" "my_bucket" {
-         bucket = "terraform-for-devops-urmi"
+         bucket = "terraform-for-devops-urmi-new"
        }
