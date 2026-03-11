@@ -8,7 +8,8 @@ provider "aws" {
 variable "bucket_names" {
   default = [
     "terraform-for-devops-urmi-new2",
-    "terraform-for-devops-urmi-new3"
+    "terraform-for-devops-urmi-new3",
+    "terraform-for-devops-urmi-new4"
   ]
 }
 
