@@ -1,10 +1,12 @@
-provider "aws" {
-    region = "us-east-1"  
+variable "bucket_names" {
+  default = [
+    "terraform-for-devops-urmi-new2",
+    "terraform-for-devops-urmi-new3"
+  ]
 }
 
-#This is s3 bucket
-     
-     
-       resource "aws_s3_bucket" "my_bucket" {
-         bucket = "terraform-for-devops-urmi-new2"
-       }
+resource "aws_s3_bucket" "buckets" {
+  for_each = toset(var.bucket_names)
+
+  bucket = each.value
+}
