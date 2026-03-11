@@ -1,3 +1,10 @@
+
+provider "aws" {
+    region = "us-east-1"  
+}
+
+#This is s3 bucket
+
 variable "bucket_names" {
   default = [
     "terraform-for-devops-urmi-new2",
