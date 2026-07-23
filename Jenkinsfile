@@ -22,7 +22,7 @@ pipeline {
             steps {
                 withCredentials([[
                     $class: 'AmazonWebServicesCredentialsBinding',
-                    credentialsId: 'aws-creds'   
+                    credentialsId: 'Teraform_user'   
                 ]]) {
                     dir('terraform') {
                         sh 'aws sts get-caller-identity'
