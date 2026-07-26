@@ -84,20 +84,6 @@ pipeline {
         }
 
         
- stage('Terraform Apply') {
-    steps {
-        withCredentials([[
-            $class: 'AmazonWebServicesCredentialsBinding',
-            credentialsId: 'aws-creds'
-        ]]) {
-            dir('terraform') {
-                sh '''
-                    terraform apply -input=false tfplan
-                '''
-            }
-        }
-    }
-}
 
 stage('Configure kubectl & Update kubeconfig') {
     steps {
