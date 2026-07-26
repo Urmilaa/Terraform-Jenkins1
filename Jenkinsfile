@@ -84,86 +84,97 @@ pipeline {
         }
 
         
-        stage('Refresh kubeconfig') {
-          steps {
-            withCredentials([[
-            $class: 'AmazonWebServicesCredentialsBinding',
-            credentialsId: 'aws-creds'
-        ]]) {
-            sh '''
-                mkdir -p /var/lib/jenkins/.kube
-
-                # Always remove old kubeconfig
-                rm -f /var/lib/jenkins/.kube/config
-
-                # Generate fresh kubeconfig
-                aws eks update-kubeconfig \
-                    --region us-east-1 \
-                    --name demo-eks-cluster \
-                    --kubeconfig /var/lib/jenkins/.kube/config
-
-                echo "Verifying kubeconfig..."
-
-                grep server /var/lib/jenkins/.kube/config
-            '''
-        }
-    }
-}    
-        
-        stage('Update kubectl') {
-             steps {
-                        withCredentials([[
-                    $class: 'AmazonWebServicesCredentialsBinding',
-                    credentialsId: 'aws-creds'
-                ]]) {
-                    dir('terraform') {
-                        sh '''
-                          curl -LO https://dl.k8s.io/release/v1.29.0/bin/linux/amd64/kubectl
-                          chmod +x kubectl
-                          export PATH=$PWD:$PATH
-                          ./kubectl version --client
-                     '''
-                    }
-                }
-            }
-        }
-
-        stage('Verify EKS Cluster') {
-        steps {
+ stage('Terraform Apply') {
+    steps {
         withCredentials([[
             $class: 'AmazonWebServicesCredentialsBinding',
             credentialsId: 'aws-creds'
         ]]) {
-            sh '''
-                export KUBECONFIG=/var/lib/jenkins/.kube/config
-
-                aws sts get-caller-identity
-
-                kubectl version --client
-
-                kubectl cluster-info
-
-                export PATH=$PWD:$PATH
-
-                kubectl get nodes -o wide
-            '''
+            dir('terraform') {
+                sh '''
+                    terraform apply -input=false tfplan
+                '''
+            }
         }
     }
 }
-       
-        
-        stage('Update kubeconfig') {
-             steps {
-                        withCredentials([[
-                    $class: 'AmazonWebServicesCredentialsBinding',
-                    credentialsId: 'aws-creds'
-                ]]) {
-                    dir('terraform') {
-                        sh 'aws eks --region us-east-1 update-kubeconfig --name demo-eks-cluster'
-                    }
-                }
+
+stage('Configure kubectl & Update kubeconfig') {
+    steps {
+        withCredentials([[
+            $class: 'AmazonWebServicesCredentialsBinding',
+            credentialsId: 'aws-creds'
+        ]]) {
+            dir('terraform') {
+                sh '''
+                    set -e
+
+                    CLUSTER_NAME="demo-eks-cluster"
+                    AWS_REGION="us-east-1"
+
+                    # Get EKS Kubernetes version
+                    K8S_VERSION=$(aws eks describe-cluster \
+                        --name ${CLUSTER_NAME} \
+                        --region ${AWS_REGION} \
+                        --query "cluster.version" \
+                        --output text)
+
+                    echo "EKS Cluster Version: ${K8S_VERSION}"
+
+                    # Download matching kubectl only if missing
+                    if [ ! -f kubectl ]; then
+                        echo "Downloading kubectl v${K8S_VERSION}.0 ..."
+                        curl -LO https://dl.k8s.io/release/v${K8S_VERSION}.0/bin/linux/amd64/kubectl
+                        chmod +x kubectl
+                    fi
+
+                    export PATH=$PWD:$PATH
+
+                    mkdir -p /var/lib/jenkins/.kube
+
+                    aws eks update-kubeconfig \
+                        --region ${AWS_REGION} \
+                        --name ${CLUSTER_NAME} \
+                        --kubeconfig /var/lib/jenkins/.kube/config
+
+                    echo "kubectl version:"
+                    kubectl version --client
+
+                    echo "Kubeconfig updated successfully."
+                '''
             }
         }
-        
+    }
+}
+
+stage('Verify EKS Cluster') {
+    steps {
+        withCredentials([[
+            $class: 'AmazonWebServicesCredentialsBinding',
+            credentialsId: 'aws-creds'
+        ]]) {
+            dir('terraform') {
+                sh '''
+                    set -e
+
+                    export PATH=$PWD:$PATH
+                    export KUBECONFIG=/var/lib/jenkins/.kube/config
+
+                    echo "AWS Identity"
+                    aws sts get-caller-identity
+
+                    echo "Cluster Info"
+                    kubectl cluster-info
+
+                    echo "Cluster Nodes"
+                    kubectl get nodes -o wide
+
+                    echo "Namespaces"
+                    kubectl get ns
+                '''
+            }
+        }
+    }
+}        
     }
 }
